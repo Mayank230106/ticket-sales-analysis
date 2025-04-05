@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -19,9 +20,22 @@ function Register() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit =async (e) => {
     e.preventDefault();
     console.log('Registered Data:', formData);
+
+    try {
+      const response = await axios.post('/api/user/register', formData);
+  
+      if (response && response.status === 201) {
+        console.log('Registration successful:', response.data);
+        // Optional: show success toast or alert
+        navigate('/login'); // navigate after success
+      }
+    } catch (error) {
+      console.error('Error registering user:', error);
+      
+    }
   };
 
   return (

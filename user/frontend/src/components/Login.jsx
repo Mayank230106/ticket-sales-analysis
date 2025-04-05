@@ -5,9 +5,26 @@ function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit =async (e) => {
     e.preventDefault();
     console.log('Username:', username, 'Password:', password);
+
+    try {
+      const response = await axios.post('/api/user/login', {
+        email: username, // assuming you're using email as username
+        password,
+      });
+  
+      if (response && response.status === 200) {
+        console.log('Login successful:', response.data);
+        // Store token if using it
+        // localStorage.setItem('token', response.data.token);
+        navigate('/'); // redirect to homepage or dashboard
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      
+    }
   };
 
   return (
