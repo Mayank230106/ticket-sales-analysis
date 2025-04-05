@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
-  View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Modal 
+  View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Modal,
+  KeyboardAvoidingView, Platform 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function NewEventScreen() {
+  const scrollViewRef = useRef<ScrollView>(null);
   const [eventData, setEventData] = useState({
     eventName: '',
     venue: '',
@@ -25,7 +27,6 @@ export default function NewEventScreen() {
     setEventData({ ...eventData, [key]: value });
   };
 
-  // Function to handle event submission
   const handleSubmit = async () => {
     if (!eventData.eventName.trim()) {
       alert("Event name cannot be empty!");
@@ -33,77 +34,196 @@ export default function NewEventScreen() {
     }
 
     try {
-      // Save event name to AsyncStorage
+      const eventDetails = {
+        name: eventData.eventName,
+        venue: eventData.venue,
+        date: eventData.date,
+        description: eventData.description,
+        breakEvenPoint: eventData.target ? parseFloat(eventData.target) : 0,
+        vipTickets: eventData.vipTickets ? parseInt(eventData.vipTickets) : 0,
+        generalTickets: eventData.generalTickets ? parseInt(eventData.generalTickets) : 0,
+        earlyBirdTickets: eventData.earlyBirdTickets ? parseInt(eventData.earlyBirdTickets) : 0,
+        vipTicketPrice: eventData.priceVIP ? parseFloat(eventData.priceVIP) : 0,
+        generalTicketPrice: eventData.priceGeneral ? parseFloat(eventData.priceGeneral) : 0,
+        earlyBirdTicketPrice: eventData.priceEarlyBird ? parseFloat(eventData.priceEarlyBird) : 0,
+      };
+
       await AsyncStorage.setItem('eventName', eventData.eventName);
+      await AsyncStorage.setItem('eventDetails', JSON.stringify(eventDetails));
       setModalVisible(true);
     } catch (error) {
-      console.error("Error saving event name:", error);
+      console.error("Error saving event data:", error);
+      alert("Failed to save event data. Please try again.");
     }
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <Text style={styles.header}>New Event</Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        decelerationRate="normal"
+      >
+        {/* Header */}
+        <Text style={styles.header}>New Event</Text>
 
-      {/* Scrollable Form Section */}
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {[
-          { key: 'eventName', label: 'Event Name' },
-          { key: 'venue', label: 'Venue' },
-          { key: 'date', label: 'Date (YYYY-MM-DD)' },
-        ].map((field) => (
+        {/* Form Section */}
+        <View style={styles.formSection}>
+          <Text style={styles.sectionLabel}>Event Name</Text>
           <TextInput
-            key={field.key}
             style={styles.input}
-            placeholder={field.label}
-            placeholderTextColor="#4A5568"
-            onChangeText={(text) => handleChange(field.key, text)}
-            value={eventData[field.key as keyof typeof eventData]}
-
+            placeholder="Enter event name"
+            onChangeText={(text) => handleChange('eventName', text)}
+            value={eventData.eventName}
           />
-        ))}
 
-        {/* Description - Larger Input Field */}
-        <TextInput
-          style={[styles.input, styles.description]}
-          placeholder="Description"
-          placeholderTextColor="#4A5568"
-          multiline
-          numberOfLines={4}
-          onChangeText={(text) => handleChange('description', text)}
-          value={eventData.description}
-        />
-
-        {/* Numeric Input Fields */}
-        {[
-          { key: 'target', label: 'Target (Break-even Point)' },
-          { key: 'vipTickets', label: 'No. of VIP Tickets' },
-          { key: 'generalTickets', label: 'No. of General Tickets' },
-          { key: 'earlyBirdTickets', label: 'No. of Early Bird Tickets' },
-          { key: 'priceVIP', label: 'Price of VIP Ticket' },
-          { key: 'priceGeneral', label: 'Price of General Ticket' },
-          { key: 'priceEarlyBird', label: 'Price of Early Bird Ticket' },
-        ].map((field) => (
+          <Text style={styles.sectionLabel}>Venue</Text>
           <TextInput
-            key={field.key}
             style={styles.input}
-            placeholder={field.label}
-            placeholderTextColor="#4A5568"
+            placeholder="Enter venue"
+            onChangeText={(text) => handleChange('venue', text)}
+            value={eventData.venue}
+          />
+
+          <Text style={styles.sectionLabel}>Date (YYYY-MM-DD)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter date"
+            onChangeText={(text) => handleChange('date', text)}
+            value={eventData.date}
+          />
+
+          <Text style={styles.sectionLabel}>Description</Text>
+          <TextInput
+            style={[styles.input, styles.description]}
+            placeholder="Enter description"
+            multiline
+            numberOfLines={4}
+            onChangeText={(text) => handleChange('description', text)}
+            value={eventData.description}
+          />
+        </View>
+
+        {/* Financial Section */}
+        <View style={styles.formSection}>
+          <Text style={styles.sectionLabel}>Target (Break-even Point)</Text>
+          <View style={styles.currencyInputContainer}>
+            <Text style={styles.currencySymbol}>$</Text>
+            <TextInput
+              style={styles.currencyInput}
+              placeholder="0.00"
+              keyboardType="numeric"
+              onChangeText={(text) => {
+                const numericValue = text.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+                handleChange('target', numericValue);
+              }}
+              value={eventData.target}
+            />
+          </View>
+
+          <Text style={styles.sectionLabel}>No. of VIP Tickets</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="0"
             keyboardType="numeric"
             onChangeText={(text) => {
               const numericValue = text.replace(/[^0-9]/g, '');
-              handleChange(field.key, numericValue);
+              handleChange('vipTickets', numericValue);
             }}
-            value={eventData[field.key as keyof typeof eventData]}
-
+            value={eventData.vipTickets}
           />
-        ))}
+
+          <Text style={styles.sectionLabel}>No. of General Tickets</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="0"
+            keyboardType="numeric"
+            onChangeText={(text) => {
+              const numericValue = text.replace(/[^0-9]/g, '');
+              handleChange('generalTickets', numericValue);
+            }}
+            value={eventData.generalTickets}
+          />
+
+          <Text style={styles.sectionLabel}>No. of Early Bird Tickets</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="0"
+            keyboardType="numeric"
+            onChangeText={(text) => {
+              const numericValue = text.replace(/[^0-9]/g, '');
+              handleChange('earlyBirdTickets', numericValue);
+            }}
+            value={eventData.earlyBirdTickets}
+          />
+
+          <Text style={styles.sectionLabel}>Price of VIP Ticket</Text>
+          <View style={styles.currencyInputContainer}>
+            <Text style={styles.currencySymbol}>$</Text>
+            <TextInput
+              style={styles.currencyInput}
+              placeholder="0.00"
+              keyboardType="numeric"
+              onChangeText={(text) => {
+                const numericValue = text.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+                handleChange('priceVIP', numericValue);
+              }}
+              value={eventData.priceVIP}
+            />
+          </View>
+
+          <Text style={styles.sectionLabel}>Price of General Ticket</Text>
+          <View style={styles.currencyInputContainer}>
+            <Text style={styles.currencySymbol}>$</Text>
+            <TextInput
+              style={styles.currencyInput}
+              placeholder="0.00"
+              keyboardType="numeric"
+              onChangeText={(text) => {
+                const numericValue = text.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+                handleChange('priceGeneral', numericValue);
+              }}
+              value={eventData.priceGeneral}
+            />
+          </View>
+
+          <Text style={styles.sectionLabel}>Price of Early Bird Ticket</Text>
+          <View style={styles.currencyInputContainer}>
+            <Text style={styles.currencySymbol}>$</Text>
+            <TextInput
+              style={styles.currencyInput}
+              placeholder="0.00"
+              keyboardType="numeric"
+              onChangeText={(text) => {
+                const numericValue = text.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+                handleChange('priceEarlyBird', numericValue);
+              }}
+              value={eventData.priceEarlyBird}
+            />
+          </View>
+        </View>
+
+        {/* Divider */}
+        <View style={styles.divider} />
 
         {/* Submit Button */}
-        <TouchableOpacity style={styles.button} onPress={handleSubmit}>
+        <TouchableOpacity 
+          style={styles.button} 
+          onPress={handleSubmit}
+          activeOpacity={0.8}
+        >
           <Text style={styles.buttonText}>Create Event</Text>
         </TouchableOpacity>
+
+        {/* Extra padding to ensure button is always visible */}
+        <View style={{ height: 50 }} />
       </ScrollView>
 
       {/* Success Modal */}
@@ -117,52 +237,106 @@ export default function NewEventScreen() {
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>✅ Event Created!</Text>
             <Text style={styles.modalMessage}>Your event has been successfully created.</Text>
-            <TouchableOpacity style={styles.modalButton} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity 
+              style={styles.modalButton} 
+              onPress={() => {
+                setModalVisible(false);
+                setEventData({
+                  eventName: '',
+                  venue: '',
+                  date: '',
+                  description: '',
+                  target: '',
+                  vipTickets: '',
+                  generalTickets: '',
+                  earlyBirdTickets: '',
+                  priceVIP: '',
+                  priceGeneral: '',
+                  priceEarlyBird: '',
+                });
+              }}
+              activeOpacity={0.8}
+            >
               <Text style={styles.modalButtonText}>OK</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
-// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 20,
   },
-  header: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#2D3748',
-    textAlign: 'center',
-    marginBottom: 10,
+  scrollView: {
+    flex: 1,
   },
   scrollContent: {
-    flexGrow: 1,  // Ensures scrolling works properly
-    paddingBottom: 80, // Space for the button
+    padding: 20,
+    paddingBottom: 20, // Reduced to allow button to be visible
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2D3748',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  formSection: {
+    marginBottom: 20,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 8,
   },
   input: {
-    backgroundColor: '#E2E8F0',
-    paddingVertical: 10, 
-    paddingHorizontal: 14,
+    backgroundColor: '#F7FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
     fontSize: 16,
     color: '#2D3748',
-    marginBottom: 10,
   },
   description: {
     height: 100,
     textAlignVertical: 'top',
   },
+  currencyInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  currencySymbol: {
+    paddingLeft: 12,
+    fontSize: 16,
+    color: '#4A5568',
+  },
+  currencyInput: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+    color: '#2D3748',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 20,
+  },
   button: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 14,
-    borderRadius: 10,
+    backgroundColor: '#4299E1',
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
     marginBottom: 20,
   },
@@ -171,7 +345,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  // Modal Styles
   modalBackground: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -179,10 +352,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContainer: {
-    width: 300,
+    width: '80%',
     backgroundColor: 'white',
+    borderRadius: 12,
     padding: 20,
-    borderRadius: 10,
     alignItems: 'center',
   },
   modalTitle: {
@@ -198,14 +371,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    backgroundColor: '#4299E1',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
   },
   modalButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
   },
 });
-
