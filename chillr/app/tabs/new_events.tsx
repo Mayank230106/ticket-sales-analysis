@@ -1,16 +1,20 @@
 import React, { useState, useRef } from 'react';
 import { 
   View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Modal,
-  KeyboardAvoidingView, Platform 
+  KeyboardAvoidingView, Platform, Alert, ActivityIndicator
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function NewEventScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
+  const [date, setDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
   const [eventData, setEventData] = useState({
     eventName: '',
     venue: '',
-    date: '',
     description: '',
     target: '',
     vipTickets: '',
@@ -27,34 +31,92 @@ export default function NewEventScreen() {
     setEventData({ ...eventData, [key]: value });
   };
 
-  const handleSubmit = async () => {
-    if (!eventData.eventName.trim()) {
-      alert("Event name cannot be empty!");
-      return;
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setDate(selectedDate);
     }
+  };
+
+  const validateForm = () => {
+    const errors = [];
+    if (!eventData.eventName.trim()) errors.push('Event Name');
+    if (!eventData.venue.trim()) errors.push('Venue');
+    
+    if (errors.length > 0) {
+      Alert.alert('Missing Information', `Please fill in: ${errors.join(', ')}`);
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm() || loading) return;
+    setLoading(true);
 
     try {
-      const eventDetails = {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) throw new Error('Authentication required');
+
+      const payload = {
         name: eventData.eventName,
         venue: eventData.venue,
-        date: eventData.date,
+        date: date.toISOString(),
         description: eventData.description,
-        breakEvenPoint: eventData.target ? parseFloat(eventData.target) : 0,
-        vipTickets: eventData.vipTickets ? parseInt(eventData.vipTickets) : 0,
-        generalTickets: eventData.generalTickets ? parseInt(eventData.generalTickets) : 0,
-        earlyBirdTickets: eventData.earlyBirdTickets ? parseInt(eventData.earlyBirdTickets) : 0,
-        vipTicketPrice: eventData.priceVIP ? parseFloat(eventData.priceVIP) : 0,
-        generalTicketPrice: eventData.priceGeneral ? parseFloat(eventData.priceGeneral) : 0,
-        earlyBirdTicketPrice: eventData.priceEarlyBird ? parseFloat(eventData.priceEarlyBird) : 0,
+        target: parseFloat(eventData.target) || 0,
+        vipTickets: {
+          price: parseFloat(eventData.priceVIP) || 0,
+          quantity: parseInt(eventData.vipTickets) || 0
+        },
+        generalTickets: {
+          price: parseFloat(eventData.priceGeneral) || 0,
+          quantity: parseInt(eventData.generalTickets) || 0
+        },
+        earlyBirdTickets: {
+          price: parseFloat(eventData.priceEarlyBird) || 0,
+          quantity: parseInt(eventData.earlyBirdTickets) || 0
+        }
       };
 
-      await AsyncStorage.setItem('eventName', eventData.eventName);
-      await AsyncStorage.setItem('eventDetails', JSON.stringify(eventDetails));
+      const response = await fetch('http://your-api-url/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const responseData = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(responseData.error || 'Event creation failed');
+      }
+
       setModalVisible(true);
-    } catch (error) {
-      console.error("Error saving event data:", error);
-      alert("Failed to save event data. Please try again.");
+      resetForm();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to create event');
+      console.error("Event creation error:", error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setDate(new Date());
+    setEventData({
+      eventName: '',
+      venue: '',
+      description: '',
+      target: '',
+      vipTickets: '',
+      generalTickets: '',
+      earlyBirdTickets: '',
+      priceVIP: '',
+      priceGeneral: '',
+      priceEarlyBird: '',
+    });
   };
 
   return (
@@ -71,10 +133,8 @@ export default function NewEventScreen() {
         scrollEventThrottle={16}
         decelerationRate="normal"
       >
-        {/* Header */}
         <Text style={styles.header}>New Event</Text>
 
-        {/* Form Section */}
         <View style={styles.formSection}>
           <Text style={styles.sectionLabel}>Event Name</Text>
           <TextInput
@@ -92,13 +152,21 @@ export default function NewEventScreen() {
             value={eventData.venue}
           />
 
-          <Text style={styles.sectionLabel}>Date (YYYY-MM-DD)</Text>
-          <TextInput
+          <Text style={styles.sectionLabel}>Date</Text>
+          <TouchableOpacity
             style={styles.input}
-            placeholder="Enter date"
-            onChangeText={(text) => handleChange('date', text)}
-            value={eventData.date}
-          />
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text>{date.toLocaleDateString()}</Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={date}
+              mode="date"
+              display="default"
+              onChange={handleDateChange}
+            />
+          )}
 
           <Text style={styles.sectionLabel}>Description</Text>
           <TextInput
@@ -111,7 +179,6 @@ export default function NewEventScreen() {
           />
         </View>
 
-        {/* Financial Section */}
         <View style={styles.formSection}>
           <Text style={styles.sectionLabel}>Target (Break-even Point)</Text>
           <View style={styles.currencyInputContainer}>
@@ -210,23 +277,24 @@ export default function NewEventScreen() {
           </View>
         </View>
 
-        {/* Divider */}
         <View style={styles.divider} />
 
-        {/* Submit Button */}
         <TouchableOpacity 
-          style={styles.button} 
+          style={[styles.button, loading && styles.disabledButton]} 
           onPress={handleSubmit}
+          disabled={loading}
           activeOpacity={0.8}
         >
-          <Text style={styles.buttonText}>Create Event</Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Create Event</Text>
+          )}
         </TouchableOpacity>
 
-        {/* Extra padding to ensure button is always visible */}
         <View style={{ height: 50 }} />
       </ScrollView>
 
-      {/* Success Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -241,19 +309,7 @@ export default function NewEventScreen() {
               style={styles.modalButton} 
               onPress={() => {
                 setModalVisible(false);
-                setEventData({
-                  eventName: '',
-                  venue: '',
-                  date: '',
-                  description: '',
-                  target: '',
-                  vipTickets: '',
-                  generalTickets: '',
-                  earlyBirdTickets: '',
-                  priceVIP: '',
-                  priceGeneral: '',
-                  priceEarlyBird: '',
-                });
+                resetForm();
               }}
               activeOpacity={0.8}
             >
@@ -276,7 +332,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 20, // Reduced to allow button to be visible
+    paddingBottom: 20,
   },
   header: {
     fontSize: 24,
@@ -339,6 +395,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 20,
+  },
+  disabledButton: {
+    backgroundColor: '#BEE3F8',
   },
   buttonText: {
     color: '#fff',
