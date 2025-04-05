@@ -3,7 +3,7 @@ import * as Linking from 'expo-linking'
 import { Text, TouchableOpacity } from 'react-native'
 
 export const SignOutButton = () => {
-  // Use `useClerk()` to access the `signOut()` function
+  // Use useClerk() to access the signOut() function
   const { signOut } = useClerk()
 
   const handleSignOut = async () => {
