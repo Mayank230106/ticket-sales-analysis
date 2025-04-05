@@ -1,0 +1,25 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+
+function HomePage2() {
+  const navigate = useNavigate();
+
+  const handleExploreClick = () => {
+    navigate('/eventlist');
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
+      <h1 className="text-4xl font-bold mb-6">Welcome back to Eventify</h1>
+      <p className="mb-4">Explore upcoming events and manage your bookings.</p>
+      <button
+        onClick={handleExploreClick}
+        className="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700"
+      >
+        View Events
+      </button>
+    </div>
+  );
+}
+
+export default HomePage2;

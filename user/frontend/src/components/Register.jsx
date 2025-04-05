@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -13,6 +14,8 @@ function Register() {
     city: '',
   });
 
+  const navigate = useNavigate();
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -20,7 +23,7 @@ function Register() {
     });
   };
 
-  const handleSubmit =async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('Registered Data:', formData);
 
@@ -29,12 +32,14 @@ function Register() {
   
       if (response && response.status === 201) {
         console.log('Registration successful:', response.data);
-        // Optional: show success toast or alert
-        navigate('/login'); // navigate after success
+        // Store user data in localStorage
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        // Redirect to Homepage2 after registration
+        navigate('/homepage2');
       }
     } catch (error) {
       console.error('Error registering user:', error);
-      
+      alert('Registration failed. Please try again.');
     }
   };
 
